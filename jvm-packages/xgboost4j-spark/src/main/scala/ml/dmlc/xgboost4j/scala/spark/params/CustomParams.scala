@@ -51,7 +51,7 @@ object CustomEvalParam {
     typeHints = typeHints + value
   }
 
-  final def addShortTypeHint(value: Class[_]): Unit = {
+  final def addTypeHintForClass(value: Class[_]): Unit = {
     typeHints = typeHints + ShortTypeHints(List(value))
   }
 }
@@ -82,7 +82,7 @@ object CustomObjParam {
     typeHints = typeHints + value
   }
 
-  final def addShortTypeHint(value: Class[_]): Unit = {
+  final def addTypeHintForClass(value: Class[_]): Unit = {
     typeHints = typeHints + ShortTypeHints(List(value))
   }
 }
