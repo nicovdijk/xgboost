@@ -23,6 +23,7 @@ import org.apache.spark.ml.param._
 import scala.collection.mutable
 
 import ml.dmlc.xgboost4j.{LabeledPoint => XGBLabeledPoint}
+import ml.dmlc.xgboost4j.scala.{EvalTrait, ObjectiveTrait}
 
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.rdd.RDD
@@ -278,6 +279,12 @@ private[spark] trait ParamMapFuncs extends Params {
           set(name, paramValue.toString.toFloat)
         case _: LongParam =>
           set(name, paramValue.toString.toLong)
+        case _: CustomObjParam =>
+          CustomObjParam.addTypeHint(paramValue)
+          set(name, paramValue)
+        case _: CustomEvalParam =>
+          CustomEvalParam.addTypeHint(paramValue)
+          set(name, paramValue)
         case _: Param[_] =>
           set(name, paramValue)
       }
