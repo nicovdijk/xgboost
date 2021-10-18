@@ -18,91 +18,47 @@ package ml.dmlc.xgboost4j.scala.spark.params
 
 import ml.dmlc.xgboost4j.scala.{EvalTrait, ObjectiveTrait}
 import ml.dmlc.xgboost4j.scala.spark.TrackerConf
-import org.json4s.JsonAST.JField
-import org.json4s.{DefaultFormats, Extraction, FullTypeHints, JValue, NoTypeHints, TypeHints}
+import org.apache.spark.ml.param.{Param, ParamPair, Params}
+import org.json4s.{DefaultFormats, Extraction, NoTypeHints}
 import org.json4s.jackson.JsonMethods.{compact, parse, render}
 import org.json4s.jackson.Serialization
 
-import org.apache.spark.ml.param.{Param, ParamPair, Params}
+/**
+ * General spark parameter that includes TypeHints for (de)serialization using json4s.
+ */
+class CustomGeneralParam[T: Manifest](
+    parent: Params,
+    name: String,
+    doc: String) extends Param[T](parent, name, doc) {
 
-object TypeHintsUtil {
-  /**
-   * Get the TypeHints according to the value
-   * @param value the instance of customized obj/eval
-   * @return if value is null,
-   *            return NoTypeHints
-   *         else return the FullTypeHints.
-   *
-   *         The FullTypeHints will save the full class name into the "jsonClass" of the json,
-   *         so we can find jsonClass and turn it to FullTypeHints when deserializetion.
-   */
-  def getTypeHints(value: Any): TypeHints = {
-    var typeHints: TypeHints = NoTypeHints
-    if (value != null) { // XGBoost will save the default values
-      typeHints = FullTypeHints(List(value.getClass))
-    }
-    typeHints
+  /** Creates a param pair with the given value (for Java). */
+  override def w(value: T): ParamPair[T] = super.w(value)
+
+  override def jsonEncode(value: T): String = {
+    implicit val format = Serialization.formats(Utils.getTypeHintsFromClass(value))
+    compact(render(Extraction.decompose(value)))
   }
 
-  /**
-   * Extract TypeHints from the saved jsonClass field
-   * @param json
-   * @return TypeHints
-   */
-  def extractTypeHint(json: JValue): TypeHints = {
-    val jsonClassField = json findField {
-      case JField("jsonClass", _) => true
-      case _ => false
-    }
+  override def jsonDecode(json: String): T = {
+    jsonDecodeT(json)
+  }
 
-    jsonClassField.map { field =>
-      implicit val formats = DefaultFormats
-      val className = field._2.extract[String]
-      FullTypeHints(List(Utils.classForName(className)))
-    }.getOrElse(NoTypeHints)
+  private def jsonDecodeT[T](jsonString: String)(implicit m: Manifest[T]): T = {
+    val json = parse(jsonString)
+    implicit val formats = DefaultFormats.withHints(Utils.getTypeHintsFromJsonClass(json))
+    json.extract[T]
   }
 }
 
 class CustomEvalParam(
     parent: Params,
     name: String,
-    doc: String) extends Param[EvalTrait](parent, name, doc) {
-
-  /** Creates a param pair with the given value (for Java). */
-  override def w(value: EvalTrait): ParamPair[EvalTrait] = super.w(value)
-
-  override def jsonEncode(value: EvalTrait): String = {
-    implicit val format = Serialization.formats(TypeHintsUtil.getTypeHints(value))
-    compact(render(Extraction.decompose(value)))
-  }
-
-  override def jsonDecode(json: String): EvalTrait = {
-    val js = parse(json)
-    implicit val formats = DefaultFormats.withHints(TypeHintsUtil.extractTypeHint(js))
-    js.extract[EvalTrait]
-  }
-}
+    doc: String) extends CustomGeneralParam[EvalTrait](parent, name, doc)
 
 class CustomObjParam(
     parent: Params,
     name: String,
-    doc: String) extends Param[ObjectiveTrait](parent, name, doc) {
-
-  /** Creates a param pair with the given value (for Java). */
-  override def w(value: ObjectiveTrait): ParamPair[ObjectiveTrait] = super.w(value)
-
-  override def jsonEncode(value: ObjectiveTrait): String = {
-    implicit val format = Serialization.formats(TypeHintsUtil.getTypeHints(value))
-    compact(render(Extraction.decompose(value)))
-  }
-
-  override def jsonDecode(json: String): ObjectiveTrait = {
-    val js = parse(json)
-    implicit val formats = DefaultFormats.withHints(TypeHintsUtil.extractTypeHint(js))
-    js.extract[ObjectiveTrait]
-  }
-
-}
+    doc: String) extends CustomGeneralParam[ObjectiveTrait](parent, name, doc)
 
 class TrackerConfParam(
     parent: Params,
